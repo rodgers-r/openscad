@@ -326,6 +326,8 @@ public slots:
   void viewCenter();
   void viewPerspective();
   void viewOrthogonal();
+  void viewGimbalMode();
+  void viewFlyMode();
   void viewTogglePerspective();
   void viewResetView();
   void viewAll();

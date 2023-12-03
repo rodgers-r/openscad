@@ -29,6 +29,7 @@ public:
   void setup(std::vector<double> params);
   void gimbalDefaultTranslate();
   void setProjection(ProjectionType type);
+  void setFlyMode(bool enabled);
   void zoom(int delta, bool relative);
   [[nodiscard]] double zoomValue() const;
   [[nodiscard]] double fovValue() const;
@@ -48,6 +49,15 @@ public:
   // Gimbalcam
   Eigen::Vector3d object_trans;
   Eigen::Vector3d object_rot;
+
+  // First-person fly mode
+  bool fly_mode;
+  Eigen::Vector3d fly_eye_position;
+  Eigen::Matrix3d fly_eye_orientation;
+  void flyOrthorotate(double ax, double ay, double az);
+  void flyMove(double vx, double vy, double vz);
+  void flyViewCenter();
+  void flyViewAll(const BoundingBox& bbox);
 
   // Perspective settings
   double fov; // Field of view

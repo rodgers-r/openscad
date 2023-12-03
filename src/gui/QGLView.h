@@ -17,6 +17,7 @@ class QGLView : public QOpenGLWidget, public GLView
   Q_PROPERTY(bool showAxes READ showAxes WRITE setShowAxes);
   Q_PROPERTY(bool showCrosshairs READ showCrosshairs WRITE setShowCrosshairs);
   Q_PROPERTY(bool orthoMode READ orthoMode WRITE setOrthoMode);
+  Q_PROPERTY(bool flyMode READ flyMode WRITE setFlyMode);
   Q_PROPERTY(double showScaleProportional READ showScaleProportional WRITE setShowScaleProportional);
 
 public:
@@ -27,6 +28,10 @@ public:
   // Properties
   bool orthoMode() const { return (this->cam.projection == Camera::ProjectionType::ORTHOGONAL); }
   void setOrthoMode(bool enabled);
+  bool flyMode() const { return this->cam.fly_mode; }
+  void setFlyMode(bool enabled);
+  void flyLookAt(double fx, double fy, double fz, double rx, double ry, double rz);
+  void flyLookAt(Eigen::Matrix3d eye);
   bool showScaleProportional() const { return this->showscale; }
   void setShowScaleProportional(bool enabled) { this->showscale = enabled; }
   std::string getRendererInfo() const override;
@@ -35,6 +40,14 @@ public:
   const QImage& grabFrame();
   bool save(const char *filename) const override;
   void resetView();
+  void viewAngleTop();
+  void viewAngleBottom();
+  void viewAngleLeft();
+  void viewAngleRight();
+  void viewAngleFront();
+  void viewAngleBack();
+  void viewAngleDiagonal();
+  void viewCenter();
   void viewAll();
 
 public slots:
@@ -53,6 +66,8 @@ public:
   void zoom(double v, bool relative);
   void zoomFov(double v);
   void zoomCursor(int x, int y, int zoom);
+  void flyRotate(double x, double y, double z);
+  void flyMove(double x, double y, double z);
   void rotate(double x, double y, double z, bool relative);
   void rotate2(double x, double y, double z);
   void translate(double x, double y, double z, bool relative, bool viewPortRelative = true);

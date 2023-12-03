@@ -88,7 +88,8 @@ void GLView::setupCamera() const
   auto dist = cam.zoomValue();
   switch (this->cam.projection) {
   case Camera::ProjectionType::PERSPECTIVE: {
-    gluPerspective(cam.fov, aspectratio, 0.1 * dist, 100 * dist);
+    if (cam.fly_mode) { gluPerspective(cam.fov, aspectratio, 0.1, 1000); }
+    else { gluPerspective(cam.fov, aspectratio, 0.1 * dist, 100 * dist); }
     break;
   }
   default:
@@ -102,13 +103,22 @@ void GLView::setupCamera() const
   }
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  gluLookAt(0.0, -dist, 0.0, // eye
-            0.0, 0.0,   0.0,// center
-            0.0, 0.0,   1.0);// up
+  if (cam.fly_mode) {
+    Eigen:Matrix4d orientation = Matrix4d::Identity();
+    orientation.block<3, 3>(0, 0) = cam.fly_eye_orientation;
 
-  glRotated(cam.object_rot.x(), 1.0, 0.0, 0.0);
-  glRotated(cam.object_rot.y(), 0.0, 1.0, 0.0);
-  glRotated(cam.object_rot.z(), 0.0, 0.0, 1.0);
+    double matrix[16];
+    Eigen::Map<Eigen::Matrix4d>(matrix, 4, 4) = orientation;
+    glMultMatrixd(matrix);
+    glTranslated(-cam.fly_eye_position.x(), -cam.fly_eye_position.y(), -cam.fly_eye_position.z());
+  } else {
+    gluLookAt(0.0, -dist, 0.0, // eye
+              0.0, 0.0,   0.0,// center
+              0.0, 0.0,   1.0);// up
+    glRotated(cam.object_rot.x(), 1.0, 0.0, 0.0);
+    glRotated(cam.object_rot.y(), 0.0, 1.0, 0.0);
+    glRotated(cam.object_rot.z(), 0.0, 0.0, 1.0);
+  }
 }
 
 void GLView::paintGL()
@@ -148,7 +158,9 @@ void GLView::paintGL()
 
   // The crosshair should be fixed at the center of the viewport...
   if (showcrosshairs) GLView::showCrosshairs(crosshaircol);
-  glTranslated(cam.object_trans.x(), cam.object_trans.y(), cam.object_trans.z());
+  if (!cam.fly_mode) {
+    glTranslated(cam.object_trans.x(), cam.object_trans.y(), cam.object_trans.z());
+  }
   // ...the axis lines need to follow the object translation.
   if (showaxes) GLView::showAxes(axescolor);
   // mark the scale along the axis lines
@@ -279,9 +291,20 @@ void GLView::showSmallaxes(const Color4f& col)
 
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  glRotated(cam.object_rot.x(), 1.0, 0.0, 0.0);
-  glRotated(cam.object_rot.y(), 0.0, 1.0, 0.0);
-  glRotated(cam.object_rot.z(), 0.0, 0.0, 1.0);
+  if (cam.fly_mode) {
+    Eigen:Matrix4d orientation = Matrix4d::Identity();
+    orientation.block<3, 1>(0, 0) = cam.fly_eye_orientation.row(0);
+    orientation.block<3, 1>(0, 1) = cam.fly_eye_orientation.row(2);
+    orientation.block<3, 1>(0, 2) = cam.fly_eye_orientation.row(1);
+
+    double matrix[16];
+    Eigen::Map<Eigen::Matrix4d>(matrix, 4, 4) = orientation.transpose();
+    glMultMatrixd(matrix);
+  } else {
+    glRotated(cam.object_rot.x(), 1.0, 0.0, 0.0);
+    glRotated(cam.object_rot.y(), 0.0, 1.0, 0.0);
+    glRotated(cam.object_rot.z(), 0.0, 0.0, 1.0);
+  }
 
   glLineWidth(dpi);
   glBegin(GL_LINES);

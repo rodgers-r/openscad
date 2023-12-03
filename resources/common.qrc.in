@@ -98,6 +98,10 @@
     <file>icons/svg-default/perspective-white.svg</file>
     <file>icons/svg-default/orthogonal.svg</file>
     <file>icons/svg-default/orthogonal-white.svg</file>
+    <file>icons/svg-default/gimbal-mode.svg</file>
+    <file>icons/svg-default/gimbal-mode-white.svg</file>
+    <file>icons/svg-default/fly-mode.svg</file>
+    <file>icons/svg-default/fly-mode-white.svg</file>
     <file>icons/svg-default/axes.svg</file>
     <file>icons/svg-default/axes-white.svg</file>
     <file>icons/svg-default/scalemarkers.svg</file>

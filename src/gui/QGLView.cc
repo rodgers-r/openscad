@@ -73,15 +73,112 @@ void QGLView::init()
   setMouseTracking(true);
 }
 
+void QGLView::flyLookAt(Matrix3d eye)
+{
+  cam.fly_eye_orientation = eye;
+  if (auto renderer = this->getRenderer()) {
+    cam.flyViewAll(renderer->getBoundingBox());
+  }
+}
+
 void QGLView::resetView()
 {
   cam.resetView();
+  flyLookAt(
+    angle_axis_degrees( 35, Vector3d::UnitX()) *
+    angle_axis_degrees(-25, Vector3d::UnitY()) *
+    angle_axis_degrees(270, Vector3d::UnitX())
+  );
+}
+
+void QGLView::viewAngleTop()
+{
+  if (cam.fly_mode) {
+    flyLookAt(Matrix3d::Identity());
+  } else {
+    cam.object_rot << 90, 0, 0;
+  }
+}
+
+void QGLView::viewAngleBottom()
+{
+  if (cam.fly_mode) {
+    flyLookAt(angle_axis_degrees(180, Vector3d::UnitX()));
+  } else {
+    cam.object_rot << 270, 0, 0;
+  }
+}
+
+void QGLView::viewAngleLeft()
+{
+  if (cam.fly_mode) {
+    flyLookAt(
+      angle_axis_degrees(90, Vector3d::UnitY()) *
+      angle_axis_degrees(270, Vector3d::UnitX())
+    );
+  } else {
+    cam.object_rot << 0, 0, 90;
+  }
+}
+
+void QGLView::viewAngleRight()
+{
+  if (cam.fly_mode) {
+    flyLookAt(
+      angle_axis_degrees(270, Vector3d::UnitY()) *
+      angle_axis_degrees(270, Vector3d::UnitX())
+    );
+  } else {
+    cam.object_rot << 0, 0, 270;
+  }
+}
+
+void QGLView::viewAngleFront()
+{
+  if (cam.fly_mode) {
+    flyLookAt(angle_axis_degrees(270, Vector3d::UnitX()));
+  } else {
+    cam.object_rot << 0, 0, 0;
+  }
+}
+
+void QGLView::viewAngleBack()
+{
+  if (cam.fly_mode) {
+    flyLookAt(
+      angle_axis_degrees(90, Vector3d::UnitX()) *
+      angle_axis_degrees(180, Vector3d::UnitY())
+    );
+  } else {
+    cam.object_rot << 0, 0, 180;
+  }
+}
+
+void QGLView::viewAngleDiagonal()
+{
+  if (cam.fly_mode) {
+    flyLookAt(
+      angle_axis_degrees( 35, Vector3d::UnitX()) *
+      angle_axis_degrees(-25, Vector3d::UnitY()) *
+      angle_axis_degrees(270, Vector3d::UnitX())
+    );
+  } else {
+    cam.object_rot << 35, 0, -25;
+  }
+}
+
+void QGLView::viewCenter()
+{
+  if (cam.fly_mode) {
+    cam.flyViewCenter();
+  } else {
+    cam.object_trans << 0, 0, 0;
+  }
 }
 
 void QGLView::viewAll()
 {
   if (auto renderer = this->getRenderer()) {
-    auto bbox = renderer->getBoundingBox();
     cam.autocenter = true;
     cam.viewAll(renderer->getBoundingBox());
   }
@@ -296,36 +393,56 @@ void QGLView::mouseMoveEvent(QMouseEvent *event)
         && !(event->modifiers() & Qt::MetaModifier)
 #endif
         ) {
-      // Left button rotates in xz, Shift-left rotates in xy
-      // On Mac, Ctrl-Left is handled as right button on other platforms
-      if ((QApplication::keyboardModifiers() & Qt::ShiftModifier) != 0) {
-        rotate(dy, dx, 0.0, true);
+      if (cam.fly_mode) {
+        if ((QApplication::keyboardModifiers() & Qt::ShiftModifier) != 0) {
+          // Shift rotates along forward vector.
+          flyRotate(0, 0, dx * 0.25);
+        } else {
+          // No shift rotates along right and up vectors.
+          flyRotate(dy * 0.25, dx * 0.25, 0);
+        }
       } else {
-        rotate(dy, 0.0, dx, true);
-      }
-
-      normalizeAngle(cam.object_rot.x());
-      normalizeAngle(cam.object_rot.y());
-      normalizeAngle(cam.object_rot.z());
-    } else {
-      // Right button pans in the xz plane
-      // Middle button pans in the xy plane
-      // Shift-right and Shift-middle zooms
-      if ((QApplication::keyboardModifiers() & Qt::ShiftModifier) != 0) {
-        zoom(-12.0 * dy, true);
-      } else {
-        double mx = +(dx) * 3.0 * cam.zoomValue() / QWidget::width();
-        double mz = -(dy) * 3.0 * cam.zoomValue() / QWidget::height();
-        double my = 0;
-        if (event->buttons() & Qt::MiddleButton) {
-          my = mz;
-          mz = 0;
-          // actually lock the x-position
-          // (turns out to be easier to use than xy panning)
-          mx = 0;
+        // Left button rotates in xz, Shift-left rotates in xy
+        // On Mac, Ctrl-Left is handled as right button on other platforms
+        if ((QApplication::keyboardModifiers() & Qt::ShiftModifier) != 0) {
+          rotate(dy, dx, 0.0, true);
+        } else {
+          rotate(dy, 0.0, dx, true);
         }
 
-        translate(mx, my, mz, true);
+        normalizeAngle(cam.object_rot.x());
+        normalizeAngle(cam.object_rot.y());
+        normalizeAngle(cam.object_rot.z());
+      }
+    } else {
+      if (cam.fly_mode) {
+        if ((QApplication::keyboardModifiers() & Qt::ShiftModifier) != 0) {
+          // Shift moves along forward vector.
+          flyMove(0, 0, dy * 5);
+        } else {
+          // No shift moves along right and up vectors.
+          flyMove(dx * 5, dy * -5, 0);
+        }
+      } else {
+        // Right button pans in the xz plane
+        // Middle button pans in the xy plane
+        // Shift-right and Shift-middle zooms
+        if ((QApplication::keyboardModifiers() & Qt::ShiftModifier) != 0) {
+          zoom(-12.0 * dy, true);
+        } else {
+          double mx = +(dx) * 3.0 * cam.zoomValue() / QWidget::width();
+          double mz = -(dy) * 3.0 * cam.zoomValue() / QWidget::height();
+          double my = 0;
+          if (event->buttons() & Qt::MiddleButton) {
+            my = mz;
+            mz = 0;
+            // actually lock the x-position
+            // (turns out to be easier to use than xy panning)
+            mx = 0;
+          }
+
+          translate(mx, my, mz, true);
+        }
       }
     }
   }
@@ -366,6 +483,8 @@ void QGLView::wheelEvent(QWheelEvent *event)
   const int v = event->angleDelta().y();
   if (QApplication::keyboardModifiers() & Qt::ShiftModifier) {
     zoomFov (v);
+  } else if (cam.fly_mode && cam.projection == Camera::ProjectionType::PERSPECTIVE) {
+    flyMove(0, 0, v * -0.25);
   } else if (this->mouseCentricZoom) {
     zoomCursor(pos.x(), pos.y(), v);
   } else {
@@ -416,6 +535,25 @@ void QGLView::setOrthoMode(bool enabled)
 {
   if (enabled) this->cam.setProjection(Camera::ProjectionType::ORTHOGONAL);
   else this->cam.setProjection(Camera::ProjectionType::PERSPECTIVE);
+}
+
+void QGLView::setFlyMode(bool enabled)
+{
+  this->cam.setFlyMode(enabled);
+}
+
+void QGLView::flyRotate(double x, double y, double z)
+{
+  cam.flyOrthorotate(x, y, z);
+  update();
+  emit cameraChanged();
+}
+
+void QGLView::flyMove(double x, double y, double z)
+{
+  cam.flyMove(x, y, z);
+  update();
+  emit cameraChanged();
 }
 
 void QGLView::translate(double x, double y, double z, bool relative, bool viewPortRelative)

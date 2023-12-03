@@ -39,28 +39,34 @@ void Camera::setup(std::vector<double> params)
   } else {
     assert(false && "Gimbal cam needs 7 numbers, Vector camera needs 6");
   }
+  fly_mode = false;
   locked = true;
 }
+
 /*!
    Moves camera so that the given bbox is fully visible.
  */
 void Camera::viewAll(const BoundingBox& bbox)
 {
-  if (bbox.isEmpty()) {
-    setVpt(0, 0, 0);
-    setVpd(DEFAULT_DISTANCE);
+  if (fly_mode) {
+    flyViewAll(bbox);
   } else {
+    if (bbox.isEmpty()) {
+      setVpt(0, 0, 0);
+      setVpd(DEFAULT_DISTANCE);
+    } else {
 
-    if (this->autocenter) {
-      // autocenter = point camera at the center of the bounding box.
-      this->object_trans = -bbox.center();
+      if (this->autocenter) {
+        // autocenter = point camera at the center of the bounding box.
+        this->object_trans = -bbox.center();
+      }
+
+      double bboxRadius = bbox.diagonal().norm() / 2;
+      double radius = (bbox.center() + object_trans).norm() + bboxRadius;
+      this->viewer_distance = radius / sin_degrees(this->fov / 2);
+      PRINTDB("modified obj trans x y z %f %f %f", object_trans.x() % object_trans.y() % object_trans.z());
+      PRINTDB("modified obj rot   x y z %f %f %f", object_rot.x() % object_rot.y() % object_rot.z());
     }
-
-    double bboxRadius = bbox.diagonal().norm() / 2;
-    double radius = (bbox.center() + object_trans).norm() + bboxRadius;
-    this->viewer_distance = radius / sin_degrees(this->fov / 2);
-    PRINTDB("modified obj trans x y z %f %f %f", object_trans.x() % object_trans.y() % object_trans.z());
-    PRINTDB("modified obj rot   x y z %f %f %f", object_rot.x() % object_rot.y() % object_rot.z());
   }
 }
 
@@ -78,12 +84,63 @@ void Camera::setProjection(ProjectionType type)
   this->projection = type;
 }
 
+void Camera::setFlyMode(bool enabled)
+{
+  fly_mode = enabled;
+}
+
+void Camera::flyOrthorotate(double ax, double ay, double az)
+{
+  // Apply rotation
+  if (ax != 0) { fly_eye_orientation = angle_axis_degrees(ax, Vector3d::UnitX()) * fly_eye_orientation; }
+  if (ay != 0) { fly_eye_orientation = angle_axis_degrees(ay, Vector3d::UnitY()) * fly_eye_orientation; }
+  if (az != 0) { fly_eye_orientation = angle_axis_degrees(az, Vector3d::UnitZ()) * fly_eye_orientation; }
+  // Re-orthogonalize matrix
+  // This needs to be done to eliminate the build-up of floating point errors during successive matrix multiplication
+  Eigen::Matrix3d tmp = fly_eye_orientation;
+  fly_eye_orientation.row(0) += tmp.row(1).cross(tmp.row(2));
+  fly_eye_orientation.row(1) += tmp.row(2).cross(tmp.row(0));
+  fly_eye_orientation.row(2) += tmp.row(0).cross(tmp.row(1));
+  fly_eye_orientation *= 1.0 / sqrt(fly_eye_orientation.row(0).dot(fly_eye_orientation.row(0)));
+}
+
+void Camera::flyMove(double vx, double vy, double vz)
+{
+  if (vx != 0) { fly_eye_position += fly_eye_orientation.row(0) * vx; }
+  if (vy != 0) { fly_eye_position += fly_eye_orientation.row(1) * vy; }
+  if (vz != 0) { fly_eye_position += fly_eye_orientation.row(2) * vz; }
+}
+
+void Camera::flyViewCenter()
+{
+  // Keeping the current orientation and distance to center, find the new position that looks directly at the center.
+  double dist = fly_eye_position.dot(fly_eye_position);
+  if (dist <= 0) { return; }
+  fly_eye_position = fly_eye_orientation.transpose().col(2) * sqrt(dist);
+}
+
+void Camera::flyViewAll(const BoundingBox& bbox)
+{
+  if (bbox.isEmpty()) {
+    this->fly_eye_position << 0, 0, DEFAULT_DISTANCE;
+    this->fly_eye_orientation = Eigen::Matrix3d::Identity();
+  } else {
+    // Move to eye center, translated backwards by the current forward orientation vector
+    double bboxRadius = bbox.diagonal().norm() / 2;
+    double radius = (bbox.center() + object_trans).norm() + bboxRadius;
+    this->viewer_distance = radius / sin_degrees(this->fov / 2);
+    this->fly_eye_position = bbox.center() + (this->fly_eye_orientation.transpose().col(2) * this->viewer_distance);
+  }
+}
+
 void Camera::resetView()
 {
   setVpr(55, 0, 25); // set in user space units
   setVpt(0, 0, 0);
   setVpd(DEFAULT_DISTANCE);
   setVpf(DEFAULT_FOV);
+  fly_eye_position << 0, 0, DEFAULT_DISTANCE;
+  fly_eye_orientation = Eigen::Matrix3d::Identity();
 }
 
 /*!
@@ -137,8 +194,40 @@ void Camera::updateView(const std::shared_ptr<const FileContext>& context, bool 
     }
   }
 
+  const auto flyMode = context->lookup_local_variable("$flyMode");
+  if (flyMode) {
+    setFlyMode(flyMode->toBool());
+    if (fly_mode) {
+
+      const auto position = context->lookup_local_variable("$flyPosition");
+      if (position) {
+        if (position->getVec3(x, y, z)) {
+          fly_eye_position << x, y, z;
+          noauto = true;
+        } else {
+          LOG(message_group::Warning, "Unable to convert $flyPosition=%1$s to a vec3 of numbers", position->toEchoString());
+        }
+      }
+
+      const auto orientation = context->lookup_local_variable("$flyOrientation");
+      if (orientation) {
+        if (orientation->getVec3(x, y, z, 0)) {
+          fly_eye_orientation = Eigen::Matrix3d::Identity();
+          flyOrthorotate(x, y, z);
+          noauto = true;
+        } else {
+          LOG(message_group::Warning, "Unable to convert $flyOrientation=%1$s to a vec3 of numbers or vec2 of numbers", orientation->toEchoString());
+        }
+      }
+    }
+  }
+
   if (enableWarning && (viewall || autocenter) && noauto) {
-    LOG(message_group::UI_Warning, "Viewall and autocenter disabled in favor of $vp*");
+    if (fly_mode) {
+      LOG(message_group::UI_Warning, "Viewall and autocenter disabled in favor of $fly*");
+    } else {
+      LOG(message_group::UI_Warning, "Viewall and autocenter disabled in favor of $vp*");
+    }
     viewall = false;
     autocenter = false;
   }

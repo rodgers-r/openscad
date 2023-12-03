@@ -185,6 +185,9 @@
          <addaction name="viewActionPerspective"/>
          <addaction name="viewActionOrthogonal"/>
          <addaction name="separator"/>
+         <addaction name="viewActionGimbalMode"/>
+         <addaction name="viewActionFlyMode"/>
+         <addaction name="separator"/>
          <addaction name="viewActionShowAxes"/>
          <addaction name="viewActionShowScaleProportional"/>
          <addaction name="viewActionShowEdges"/>
@@ -348,6 +351,9 @@
     <addaction name="separator"/>
     <addaction name="viewActionPerspective"/>
     <addaction name="viewActionOrthogonal"/>
+    <addaction name="separator"/>
+    <addaction name="viewActionGimbalMode"/>
+    <addaction name="viewActionFlyMode"/>
     <addaction name="separator"/>
     <addaction name="viewActionHideEditorToolBar"/>
     <addaction name="viewActionHide3DViewToolBar"/>
@@ -1189,6 +1195,22 @@
    </property>
    <property name="text">
     <string>&amp;Orthogonal</string>
+   </property>
+  </action>
+  <action name="viewActionGimbalMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Gimbal Mode</string>
+   </property>
+  </action>
+  <action name="viewActionFlyMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Fly Mode</string>
    </property>
   </action>
   <action name="windowActionHideConsole">

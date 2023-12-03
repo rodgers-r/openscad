@@ -513,6 +513,8 @@ MainWindow::MainWindow(const QStringList& filenames)
   connect(this->viewActionViewAll, SIGNAL(triggered()), this, SLOT(viewAll()));
   connect(this->viewActionPerspective, SIGNAL(triggered()), this, SLOT(viewPerspective()));
   connect(this->viewActionOrthogonal, SIGNAL(triggered()), this, SLOT(viewOrthogonal()));
+  connect(this->viewActionGimbalMode, SIGNAL(triggered()), this, SLOT(viewGimbalMode()));
+  connect(this->viewActionFlyMode, SIGNAL(triggered()), this, SLOT(viewFlyMode()));
   connect(this->viewActionZoomIn, SIGNAL(triggered()), qglview, SLOT(ZoomIn()));
   connect(this->viewActionZoomOut, SIGNAL(triggered()), qglview, SLOT(ZoomOut()));
   connect(this->viewActionHideEditorToolBar, SIGNAL(triggered()), this, SLOT(hideEditorToolbar()));
@@ -613,6 +615,8 @@ MainWindow::MainWindow(const QStringList& filenames)
   initActionIcon(viewActionThrownTogether, ":/icons/svg-default/throwntogether.svg", ":/icons/svg-default/throwntogether-white.svg");
   initActionIcon(viewActionPerspective, ":/icons/svg-default/perspective.svg", ":/icons/svg-default/perspective-white.svg");
   initActionIcon(viewActionOrthogonal, ":/icons/svg-default/orthogonal.svg", ":/icons/svg-default/orthogonal-white.svg");
+  initActionIcon(viewActionGimbalMode, ":/icons/svg-default/gimbal-mode.svg", ":/icons/svg-default/gimbal-mode-white.svg");
+  initActionIcon(viewActionFlyMode, ":/icons/svg-default/fly-mode.svg", ":/icons/svg-default/fly-mode-white.svg");
   initActionIcon(designActionPreview, ":/icons/svg-default/preview.svg", ":/icons/svg-default/preview-white.svg");
   initActionIcon(fileActionExportSTL, ":/icons/svg-default/export-stl.svg", ":/icons/svg-default/export-stl-white.svg");
   initActionIcon(fileActionExportAMF, ":/icons/svg-default/export-amf.svg", ":/icons/svg-default/export-amf-white.svg");
@@ -877,6 +881,11 @@ void MainWindow::loadViewSettings(){
     viewOrthogonal();
   } else {
     viewPerspective();
+  }
+  if (settings.value("view/flyMode").toBool()) {
+    viewFlyMode();
+  } else {
+    viewGimbalMode();
   }
 
   updateUndockMode(Preferences::inst()->getValue("advanced/undockableWindows").toBool());
@@ -2919,49 +2928,49 @@ void MainWindow::editorContentChanged()
 
 void MainWindow::viewAngleTop()
 {
-  qglview->cam.object_rot << 90, 0, 0;
+  this->qglview->viewAngleTop();
   this->qglview->update();
 }
 
 void MainWindow::viewAngleBottom()
 {
-  qglview->cam.object_rot << 270, 0, 0;
+  this->qglview->viewAngleBottom();
   this->qglview->update();
 }
 
 void MainWindow::viewAngleLeft()
 {
-  qglview->cam.object_rot << 0, 0, 90;
+  this->qglview->viewAngleLeft();
   this->qglview->update();
 }
 
 void MainWindow::viewAngleRight()
 {
-  qglview->cam.object_rot << 0, 0, 270;
+  this->qglview->viewAngleRight();
   this->qglview->update();
 }
 
 void MainWindow::viewAngleFront()
 {
-  qglview->cam.object_rot << 0, 0, 0;
+  this->qglview->viewAngleFront();
   this->qglview->update();
 }
 
 void MainWindow::viewAngleBack()
 {
-  qglview->cam.object_rot << 0, 0, 180;
+  this->qglview->viewAngleBack();
   this->qglview->update();
 }
 
 void MainWindow::viewAngleDiagonal()
 {
-  qglview->cam.object_rot << 35, 0, -25;
+  this->qglview->viewAngleDiagonal();
   this->qglview->update();
 }
 
 void MainWindow::viewCenter()
 {
-  qglview->cam.object_trans << 0, 0, 0;
+  this->qglview->viewCenter();
   this->qglview->update();
 }
 
@@ -2982,6 +2991,26 @@ void MainWindow::viewOrthogonal()
   viewActionPerspective->setChecked(false);
   viewActionOrthogonal->setChecked(true);
   this->qglview->setOrthoMode(true);
+  this->qglview->update();
+}
+
+void MainWindow::viewGimbalMode()
+{
+  QSettingsCached settings;
+  settings.setValue("view/flyMode", false);
+  viewActionGimbalMode->setChecked(true);
+  viewActionFlyMode->setChecked(false);
+  this->qglview->setFlyMode(false);
+  this->qglview->update();
+}
+
+void MainWindow::viewFlyMode()
+{
+  QSettingsCached settings;
+  settings.setValue("view/flyMode", true);
+  viewActionGimbalMode->setChecked(false);
+  viewActionFlyMode->setChecked(true);
+  this->qglview->setFlyMode(true);
   this->qglview->update();
 }
 
